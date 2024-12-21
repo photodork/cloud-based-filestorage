@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload to S3</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+            text-align: center;
+        }
+        .upload-container, .files-container {
+            margin: 20px auto;
+            max-width: 400px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        input[type="file"] {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 10px 0;
+        }
+        a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload File to AWS S3</h1>
+    <div class="upload-container">
+        <form id="uploadForm">
+            <input type="file" id="fileInput" required /><br />
+            <button type="submit">Upload</button>
+        </form>
+        <p id="status"></p>
+    </div>
+    <div class="files-container">
+        <h2>Uploaded Files</h2>
+        <ul id="fileList"></ul>
+    </div>
+    <script>
+        const form = document.getElementById('uploadForm');
+        const status = document.getElementById('status');
+        const fileList = document.getElementById('fileList');
+
+        // Handle file upload
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return alert('Please select a file.');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            status.textContent = 'Uploading...';
+
+            try {
+                const response = await fetch('http://localhost:3000/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    status.textContent = 'Upload successful!';
+                    loadFiles(); // Refresh the file list after upload
+                } else {
+                    status.textContent = 'Upload failed: ' + result.message;
+                }
+            } catch (err) {
+                console.error(err);
+                status.textContent = 'Error uploading file.';
+            }
+        });
+
+        // Fetch and display files
+        async function loadFiles() {
+    try {
+        const response = await fetch('http://localhost:3000/files');
+        const files = await response.json();
+
+        fileList.innerHTML = '';
+        files.forEach(file => {
+            const li = document.createElement('li');
+            const link = document.createElement('a');
+            link.href = file.url;
+            link.target = '_blank';
+            link.textContent = file.name;
+
+            // Add delete button
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.onclick = () => deleteFile(file.name);
+
+            li.appendChild(link);
+            li.appendChild(deleteButton);
+            fileList.appendChild(li);
+        });
+    } catch (err) {
+        console.error('Error fetching files:', err);
+    }
+}
+
+// Function to delete the file
+async function deleteFile(fileName) {
+    if (!confirm(`Are you sure you want to delete ${fileName}?`)) return;
+
+    try {
+        const response = await fetch(`http://localhost:3000/delete/${fileName}`, {
+            method: 'DELETE',
+        });
+        const result = await response.json();
+        if (response.ok) {
+            alert(result.message);
+            loadFiles(); // Reload file list after deletion
+        } else {
+            alert('Error deleting file: ' + result.message);
+        }
+    } catch (err) {
+        console.error('Error deleting file:', err);
+        alert('Error deleting file.');
+    }
+}
+
+        // Load files on page load
+        loadFiles();
+    </script>
+</body>
+</html>
